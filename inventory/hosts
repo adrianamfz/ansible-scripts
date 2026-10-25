@@ -1,3 +1,2 @@
-
 [servidor]
-192.168.148.129 ansible_user=publica
+192.168.148.129

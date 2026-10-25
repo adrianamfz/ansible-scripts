@@ -1,0 +1,70 @@
+---
+- name: Instalar Samba
+  ansible.builtin.package:
+    name: samba
+    state: present
+
+- name: Crear grupo para el recurso compartido
+  ansible.builtin.group:
+    name: sambashare
+    state: present
+
+- name: Crear usuario del sistema para Samba
+  ansible.builtin.user:
+    name: smbuser
+    group: sambashare
+    shell: /usr/sbin/nologin
+    create_home: false
+    state: present
+
+- name: Comprobar si el usuario ya existe en Samba
+  ansible.builtin.command:
+    argv:
+      - pdbedit
+      - -L
+      - -u
+      - smbuser
+  register: samba_user_check
+  changed_when: false
+  failed_when: false
+
+- name: Registrar usuario en Samba
+  ansible.builtin.command:
+    argv:
+      - smbpasswd
+      - -s
+      - -a
+      - smbuser
+    stdin: "{{ samba_password }}\n{{ samba_password }}\n"
+    stdin_add_newline: false
+  when: samba_user_check.rc != 0
+  no_log: true
+
+- name: Crear directorio compartido
+  ansible.builtin.file:
+    path: /srv/samba/compartido
+    state: directory
+    owner: smbuser
+    group: sambashare
+    mode: '2770'
+
+- name: Configurar recurso compartido Samba
+  ansible.builtin.blockinfile:
+    path: /etc/samba/smb.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK COMPARTIDO"
+    block: |
+      [Compartido]
+         path = /srv/samba/compartido
+         browseable = yes
+         read only = no
+         guest ok = no
+         valid users = @sambashare
+         create mask = 0660
+         directory mask = 2770
+  notify: Reiniciar Samba
+
+- name: Habilitar e iniciar Samba
+  ansible.builtin.service:
+    name: smb
+    enabled: true
+    state: started

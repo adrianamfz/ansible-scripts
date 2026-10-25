@@ -1,0 +1,16 @@
+---
+- name: Desplegar servicios LAMP, Samba y FTP
+  hosts: servidor
+  become: true
+
+  vars_prompt:
+    - name: samba_password
+      prompt: "Introduce la contraseña para smbuser en Samba"
+      private: true
+      confirm: true
+
+  roles:
+    - apache_php
+    - mariadb
+    - samba
+    - ftp
