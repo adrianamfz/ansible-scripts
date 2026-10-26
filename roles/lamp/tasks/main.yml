@@ -1,0 +1,54 @@
+---
+- name: Instalar Apache, PHP y phpMyAdmin
+  ansible.builtin.zypper:
+    name:
+      - apache2
+      - apache2-mod_php8
+      - php8-mysql
+      - php8-mbstring
+      - phpMyAdmin
+      - phpMyAdmin-apache
+    state: present
+
+- name: Activar el modulo PHP en Apache
+  ansible.builtin.command: a2enmod php8
+  changed_when: false
+  failed_when: false
+
+- name: Copiar la configuracion de Apache
+  ansible.builtin.template:
+    src: aso.conf.j2
+    dest: /etc/apache2/conf.d/aso.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reiniciar apache2
+
+- name: Copiar pagina de prueba de PHP
+  ansible.builtin.copy:
+    content: "<?php echo 'PHP funciona en ' . gethostname(); ?>\n"
+    dest: /srv/www/htdocs/info.php
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Permitir a Apache conectarse a la base de datos (SELinux)
+  ansible.builtin.shell: getsebool httpd_can_network_connect_db | grep -q on$ || setsebool -P httpd_can_network_connect_db on
+  changed_when: false
+  failed_when: false
+
+- name: Abrir HTTP en el firewall
+  ansible.builtin.command: firewall-cmd --permanent --add-service=http
+  changed_when: false
+  failed_when: false
+
+- name: Recargar el firewall
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: false
+  failed_when: false
+
+- name: Habilitar e iniciar Apache
+  ansible.builtin.systemd:
+    name: apache2
+    enabled: true
+    state: started
