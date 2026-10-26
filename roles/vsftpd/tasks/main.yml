@@ -1,0 +1,40 @@
+---
+- name: Instalar vsftpd
+  ansible.builtin.zypper:
+    name: vsftpd
+    state: present
+
+- name: Copiar la configuracion de vsftpd
+  ansible.builtin.template:
+    src: vsftpd.conf.j2
+    dest: /etc/vsftpd.conf
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Reiniciar vsftpd
+
+- name: Ver si SELinux permite escribir por FTP
+  ansible.builtin.command: getsebool ftpd_full_access
+  register: selinux_ftp
+  changed_when: false
+  failed_when: false
+
+- name: Permitir escritura FTP en SELinux
+  ansible.builtin.command: setsebool -P ftpd_full_access on
+  when: "'--> off' in selinux_ftp.stdout"
+
+- name: Abrir el servicio FTP en el firewall
+  ansible.builtin.command: firewall-cmd --permanent --add-service=ftp
+  changed_when: false
+  failed_when: false
+
+- name: Recargar el firewall
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: false
+  failed_when: false
+
+- name: Habilitar e iniciar vsftpd
+  ansible.builtin.systemd:
+    name: vsftpd
+    enabled: true
+    state: started
