@@ -1,0 +1,14 @@
+[global]
+   workgroup = WORKGROUP
+   server role = standalone server
+   map to guest = Bad User
+   load printers = no
+   printcap name = /dev/null
+   disable spoolss = yes
+
+[transfer]
+   path = {{ samba_dir }}
+   read only = no
+   valid users = {{ samba_user }}
+   create mask = {{ samba_create_mask }}
+   directory mask = {{ samba_directory_mask }}

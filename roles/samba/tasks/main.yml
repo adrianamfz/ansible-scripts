@@ -1,0 +1,78 @@
+---
+- name: Instalar samba y samba-client
+  ansible.builtin.zypper:
+    name:
+      - samba
+      - samba-client
+    state: present
+
+- name: Poner el nombre del servidor en /etc/hosts (evita el timeout)
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+{{ ansible_hostname }}$'
+    line: "{{ ansible_default_ipv4.address }} {{ ansible_hostname }}"
+
+- name: Crear el usuario del sistema
+  ansible.builtin.user:
+    name: "{{ samba_user }}"
+    group: users
+    shell: /sbin/nologin
+    create_home: false
+    system: true
+
+- name: Crear el directorio compartido
+  ansible.builtin.file:
+    path: "{{ samba_dir }}"
+    state: directory
+    owner: "{{ samba_user }}"
+    group: users
+    mode: "0775"
+
+- name: Copiar la configuracion de samba
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reiniciar samba
+
+- name: Ver usuarios de samba existentes
+  ansible.builtin.command: pdbedit -L
+  register: pdb_lista
+  changed_when: false
+
+- name: Crear el usuario de samba
+  ansible.builtin.shell: >
+    printf '%s\n%s\n' '{{ samba_password }}' '{{ samba_password }}' |
+    smbpasswd -s -a {{ samba_user }}
+  when: (samba_user ~ ':') not in pdb_lista.stdout
+  no_log: true
+
+- name: Permitir escritura de samba en SELinux
+  ansible.builtin.shell: getsebool samba_export_all_rw | grep -q on$ || setsebool -P samba_export_all_rw on
+  changed_when: false
+
+- name: Etiquetar el directorio para samba
+  ansible.builtin.command: chcon -R -t samba_share_t {{ samba_dir }}
+  changed_when: false
+  failed_when: false
+
+- name: Abrir samba en el firewall
+  ansible.builtin.command: firewall-cmd --permanent --add-service=samba
+  changed_when: false
+  failed_when: false
+
+- name: Recargar el firewall
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: false
+  failed_when: false
+
+- name: Habilitar e iniciar smb y nmb
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - smb
+    - nmb
