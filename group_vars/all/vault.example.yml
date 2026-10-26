@@ -1,0 +1,6 @@
+# Copia este archivo como vault.yml, pon tus contraseñas y cífralo con:
+#   ansible-vault encrypt group_vars/all/vault.yml
+ansible_become_password: "CAMBIAR"
+samba_password: "CAMBIAR"
+db_root_password: "CAMBIAR"
+db_app_password: "CAMBIAR"

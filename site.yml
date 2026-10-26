@@ -1,0 +1,8 @@
+---
+- name: Desplegar servicios en destino
+  hosts: servidores
+  roles:
+    - vsftpd
+    - samba
+    - mariadb
+    - lamp
