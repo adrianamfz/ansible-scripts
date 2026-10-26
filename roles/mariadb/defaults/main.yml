@@ -1,0 +1,2 @@
+mariadb_python_pkg: python313-PyMySQL
+mariadb_socket: /run/mysql/mysql.sock

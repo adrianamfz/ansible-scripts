@@ -1,0 +1,59 @@
+- name: Instalar Apache, PHP y phpMyAdmin
+  community.general.zypper:
+    name: "{{ lamp_packages }}"
+    state: present
+
+- name: Habilitar módulos de Apache (a2enmod)
+  ansible.builtin.command: "/usr/sbin/a2enmod {{ item }}"
+  loop: [php8, rewrite]
+  register: lamp_a2enmod
+  changed_when: "'already' not in lamp_a2enmod.stdout"
+  notify: Reiniciar apache
+
+- name: Configurar PHP
+  ansible.builtin.template:
+    src: php.ini.j2
+    dest: /etc/php8/conf.d/99-custom.ini
+    mode: "0644"
+  notify: Reiniciar apache
+
+- name: Configurar Apache
+  ansible.builtin.template:
+    src: apache-custom.conf.j2
+    dest: /etc/apache2/conf.d/custom.conf
+    mode: "0644"
+  notify: Reiniciar apache
+
+- name: Página de prueba PHP
+  ansible.builtin.copy:
+    content: "<?php phpinfo();\n"
+    dest: "{{ lamp_docroot }}/info.php"
+    mode: "0644"
+
+- name: Iniciar y habilitar Apache
+  ansible.builtin.service:
+    name: apache2
+    state: started
+    enabled: true
+
+- name: Comprobar firewalld
+  ansible.builtin.command: which firewall-cmd
+  register: lamp_firewalld
+  changed_when: false
+  failed_when: false
+
+- name: Abrir HTTP y HTTPS
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: [http, https]
+  when: lamp_firewalld.rc == 0
+
+- name: Configurar alias de phpMyAdmin
+  ansible.builtin.template:
+    src: phpmyadmin.conf.j2
+    dest: /etc/apache2/conf.d/phpmyadmin-ansible.conf
+    mode: "0644"
+  notify: Reiniciar apache

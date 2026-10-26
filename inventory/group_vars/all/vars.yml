@@ -1,0 +1,8 @@
+ansible_user: publica
+ansible_become_password: "{{ vault_become_password }}"
+samba_user: sambauser
+samba_dir: /srv/samba/compartido
+ftp_user: ftpuser
+mariadb_db_name: appdb
+mariadb_db_user: appuser
+ansible_become_method: su

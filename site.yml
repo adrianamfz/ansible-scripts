@@ -1,0 +1,8 @@
+- name: Desplegar LAMP, Samba y FTP
+  hosts: servers
+  become: true
+  roles:
+    - { role: lamp,    tags: lamp }
+    - { role: mariadb, tags: mariadb }
+    - { role: samba,   tags: samba }
+    - { role: ftp,     tags: ftp }

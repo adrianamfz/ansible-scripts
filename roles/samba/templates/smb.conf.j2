@@ -1,0 +1,14 @@
+# Gestionado por Ansible
+[global]
+   workgroup = WORKGROUP
+   server string = Servidor Samba
+   security = user
+   map to guest = Never
+
+[compartido]
+   path = {{ samba_dir }}
+   valid users = {{ samba_user }}
+   browseable = yes
+   writable = yes
+   create mask = 0660
+   directory mask = 0770
