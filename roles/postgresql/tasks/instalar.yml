@@ -1,0 +1,13 @@
+---
+- name: Instalar PostgreSQL y su servidor
+  ansible.builtin.zypper:
+    name:
+      - postgresql
+      - postgresql-server
+    state: present
+
+- name: Habilitar e iniciar PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started

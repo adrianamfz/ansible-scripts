@@ -1,0 +1,6 @@
+---
+- import_tasks: instalar.yml
+- import_tasks: php.yml
+- import_tasks: password.yml
+- import_tasks: usuario_db.yml
+- import_tasks: remoto_ssl.yml
