@@ -1,0 +1,55 @@
+---
+- name: Instalar MariaDB
+  ansible.builtin.zypper:
+    name:
+      - mariadb
+      - mariadb-client
+    state: present
+
+- name: Copiar la configuracion de MariaDB
+  ansible.builtin.template:
+    src: aso.cnf.j2
+    dest: /etc/my.cnf.d/aso.cnf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reiniciar mariadb
+
+- name: Habilitar e iniciar MariaDB
+  ansible.builtin.systemd:
+    name: mariadb
+    enabled: true
+    state: started
+
+- name: Ver si root todavia entra sin contrasena
+  ansible.builtin.command: mariadb -u root -e "SELECT 1"
+  register: root_sin_clave
+  changed_when: false
+  failed_when: false
+
+- name: Poner contrasena al root de MariaDB
+  ansible.builtin.command: >
+    mariadb -u root -e "ALTER USER 'root'@'localhost'
+    IDENTIFIED BY '{{ db_root_password }}'; FLUSH PRIVILEGES;"
+  when: root_sin_clave.rc == 0
+  no_log: true
+
+- name: Crear la base de datos
+  ansible.builtin.command: >
+    mariadb -u root -e "CREATE DATABASE IF NOT EXISTS {{ db_name }}
+    CHARACTER SET utf8mb4;"
+  environment:
+    MYSQL_PWD: "{{ db_root_password }}"
+  changed_when: false
+  no_log: true
+
+- name: Crear el usuario de la base y darle permisos
+  ansible.builtin.command: >
+    mariadb -u root -e "CREATE USER IF NOT EXISTS '{{ db_user }}'@'localhost'
+    IDENTIFIED BY '{{ db_app_password }}';
+    GRANT ALL PRIVILEGES ON {{ db_name }}.* TO '{{ db_user }}'@'localhost';
+    FLUSH PRIVILEGES;"
+  environment:
+    MYSQL_PWD: "{{ db_root_password }}"
+  changed_when: false
+  no_log: true
