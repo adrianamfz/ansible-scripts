@@ -1,0 +1,107 @@
+- name: Instalar PostgreSQL, librería PHP y openssl
+  community.general.zypper:
+    name:
+      - postgresql
+      - postgresql-server
+      - php8-pgsql
+      - openssl
+    state: present
+  notify: Reiniciar apache
+
+- name: Iniciar y habilitar PostgreSQL
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Esperar a que exista el directorio de datos
+  ansible.builtin.wait_for:
+    path: "{{ pg_data_dir }}/postgresql.conf"
+    timeout: 60
+
+# ---------- Contraseña y usuarios ----------
+- name: Definir contraseña del usuario postgres
+  ansible.builtin.command: >
+    runuser -u postgres -- psql -c
+    "ALTER USER postgres PASSWORD '{{ vault_pg_postgres_password }}';"
+  no_log: true
+  changed_when: false
+
+- name: Comprobar si existe el usuario de la aplicación
+  ansible.builtin.command: >
+    runuser -u postgres -- psql -tAc
+    "SELECT 1 FROM pg_roles WHERE rolname='{{ pg_db_user }}'"
+  register: pg_user_exists
+  changed_when: false
+
+- name: Crear usuario de la aplicación
+  ansible.builtin.command: >
+    runuser -u postgres -- psql -c
+    "CREATE USER {{ pg_db_user }} WITH PASSWORD '{{ vault_pg_app_password }}';"
+  when: pg_user_exists.stdout.strip() != '1'
+  no_log: true
+
+- name: Comprobar si existe la base de datos
+  ansible.builtin.command: >
+    runuser -u postgres -- psql -tAc
+    "SELECT 1 FROM pg_database WHERE datname='{{ pg_db_name }}'"
+  register: pg_db_exists
+  changed_when: false
+
+- name: Crear base de datos
+  ansible.builtin.command: >
+    runuser -u postgres -- psql -c
+    "CREATE DATABASE {{ pg_db_name }} OWNER {{ pg_db_user }};"
+  when: pg_db_exists.stdout.strip() != '1'
+
+# ---------- Cifrado SSL ----------
+- name: Generar certificado autofirmado
+  ansible.builtin.command: >
+    openssl req -new -x509 -days 365 -nodes -text
+    -out {{ pg_data_dir }}/server.crt
+    -keyout {{ pg_data_dir }}/server.key
+    -subj "/CN={{ inventory_hostname }}"
+  args:
+    creates: "{{ pg_data_dir }}/server.crt"
+
+- name: Permisos del certificado y la llave
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}/{{ item }}"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  loop: [server.crt, server.key]
+
+# ---------- Conexión remota y cifrado ----------
+- name: Configurar postgresql.conf
+  ansible.builtin.lineinfile:
+    path: "{{ pg_data_dir }}/postgresql.conf"
+    regexp: '^#?\s*{{ item.key }}\s*='
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: listen_addresses, value: "'*'" }
+    - { key: ssl, value: "on" }
+    - { key: ssl_cert_file, value: "'server.crt'" }
+    - { key: ssl_key_file, value: "'server.key'" }
+    - { key: password_encryption, value: "scram-sha-256" }
+  notify: Reiniciar postgresql
+
+- name: Permitir conexión remota solo con SSL
+  ansible.builtin.lineinfile:
+    path: "{{ pg_data_dir }}/pg_hba.conf"
+    line: "hostssl  all  all  {{ pg_allowed_network }}  scram-sha-256"
+  notify: Reiniciar postgresql
+
+- name: Comprobar firewalld
+  ansible.builtin.command: which firewall-cmd
+  register: pg_firewalld
+  changed_when: false
+  failed_when: false
+
+- name: Abrir PostgreSQL en el firewall
+  ansible.posix.firewalld:
+    port: 5432/tcp
+    permanent: true
+    immediate: true
+    state: enabled
+  when: pg_firewalld.rc == 0

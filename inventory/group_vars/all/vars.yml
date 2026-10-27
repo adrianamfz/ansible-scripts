@@ -6,3 +6,6 @@ ftp_user: ftpuser
 mariadb_db_name: appdb
 mariadb_db_user: appuser
 ansible_become_method: su
+pg_db_name: appdb_pg
+pg_db_user: appuser
+pg_allowed_network: 192.168.101.0/24

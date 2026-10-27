@@ -6,3 +6,4 @@
     - { role: mariadb, tags: mariadb }
     - { role: samba,   tags: samba }
     - { role: ftp,     tags: ftp }
+    - { role: postgresql, tags: postgresql }
