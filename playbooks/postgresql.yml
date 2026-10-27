@@ -1,0 +1,8 @@
+---
+- name: Configurar PostgreSQL
+  hosts: servidor
+  become: true
+  become_user: root
+
+  roles:
+    - postgresql

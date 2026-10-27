@@ -14,3 +14,4 @@
     - mariadb
     - samba
     - ftp
+    - postgresql

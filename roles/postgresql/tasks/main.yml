@@ -1,0 +1,99 @@
+---
+- name: Instalar PostgreSQL 18 y conectores
+  ansible.builtin.package:
+    name:
+      - postgresql18-server
+      - postgresql18
+      - php8-pgsql
+      - python313-psycopg2
+    state: present
+  become: true
+  become_user: root
+
+- name: Habilitar e iniciar PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started
+  become: true
+  become_user: root
+
+- name: Comprobar que PostgreSQL responde
+  ansible.builtin.command:
+    argv:
+      - /usr/lib/postgresql18/bin/pg_isready
+  become_user: postgres
+  changed_when: false
+
+- name: Verificar variables de PostgreSQL sin revelar secretos
+  ansible.builtin.assert:
+    that:
+      - postgres_user is defined
+      - postgres_password is defined
+      - postgres_user | length > 0
+      - postgres_password | length > 0
+    fail_msg: "Falta una variable de PostgreSQL o está vacía."
+    success_msg: "Las variables de usuario y contraseña están definidas."
+
+- name: Crear usuario de PostgreSQL
+  community.postgresql.postgresql_user:
+    name: "{{ postgres_user }}"
+    password: "{{ postgres_password }}"
+    role_attr_flags: LOGIN
+    state: present
+    login_db: postgres
+    login_unix_socket: /run/postgresql
+  become: true
+  become_user: postgres
+  no_log: true
+
+- name: Crear base de datos de la aplicación
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    owner: "{{ postgres_user }}"
+    state: present
+    login_unix_socket: /run/postgresql
+  become: true
+  become_user: postgres
+
+- name: Configurar escucha remota de PostgreSQL
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/postgresql.conf
+    regexp: '^\s*#?\s*listen_addresses\s*='
+    line: "listen_addresses = '*'"
+  notify: Reiniciar PostgreSQL
+  become: true
+
+- name: Habilitar SSL en PostgreSQL
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/postgresql.conf
+    regexp: '^\s*#?\s*ssl\s*='
+    line: "ssl = on"
+  notify: Reiniciar PostgreSQL
+  become: true
+
+- name: Configurar cifrado de contraseñas
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/postgresql.conf
+    regexp: '^\s*#?\s*password_encryption\s*='
+    line: "password_encryption = 'scram-sha-256'"
+  notify: Reiniciar PostgreSQL
+  become: true
+
+- name: Configurar acceso remoto SSL a la base de datos
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/pg_hba.conf
+    regexp: '^hostssl\s+{{ postgres_db }}\s+{{ postgres_user }}\s+192\.168\.148\.0/24\s+scram-sha-256$'
+    line: "hostssl {{ postgres_db }} {{ postgres_user }} 192.168.148.0/24 scram-sha-256"
+  notify: Reiniciar PostgreSQL
+  become: true
+
+- name: Permitir PostgreSQL desde la red autorizada
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: 'rule family="ipv4" source address="192.168.148.0/24" port port="5432" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  become: true
+
