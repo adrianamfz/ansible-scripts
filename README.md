@@ -1,13 +1,55 @@
-# Ansible Scripts
+# Proyecto Ansible
 
-Proyecto de automatización de servicios en OpenSUSE 16.0 mediante Ansible.
+Automatización de servicios en openSUSE 16.0 mediante Ansible.
 
-## Contenido
-- Playbooks de Ansible.
-- Configuración del servicio FTP.
-- Inventario de servidores.
+## Servicios incluidos
+- Apache y PHP.
+- MariaDB.
+- Samba.
+- FTP (vsftpd).
+- PostgreSQL 18 con conexión SSL.
 
 ## Requisitos
-- OpenSUSE 16.0.
 - Ansible instalado en el nodo de control.
-- Conexión SSH con el servidor de destino.
+- Servidor openSUSE 16.0.
+- Conexión SSH.
+- Usuario con permisos sudo.
+- Variables protegidas mediante Ansible Vault.
+
+## Estructura
+- ansible.cfg: configuración de Ansible.
+- inventory/: inventario de servidores.
+- playbooks/: archivos de automatización.
+- roles/: tareas organizadas por servicio.
+
+## Ejecución
+
+Verificar conexión:
+
+    ansible servidor -m ping -k -K --ask-vault-pass
+
+Comprobar sintaxis:
+
+    ansible-playbook playbooks/deploy.yml --syntax-check --ask-vault-pass
+
+Ejecutar todos los servicios:
+
+    ansible-playbook playbooks/deploy.yml -k -K --ask-vault-pass
+
+Ejecutar PostgreSQL individualmente:
+
+    ansible-playbook playbooks/postgresql.yml -k -K --ask-vault-pass
+
+## Verificación
+
+Comprobar servicios:
+
+    systemctl is-active apache2 mariadb smb vsftpd postgresql
+
+Verificar PostgreSQL:
+
+    psql --version
+
+## Repositorio GitHub
+
+https://github.com/adrianamfz/ansible-scripts

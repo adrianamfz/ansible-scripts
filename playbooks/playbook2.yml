@@ -5,7 +5,7 @@
   tasks:
   - name: Copy file hosts with permissions
     ansible.builtin.copy:
-      src: ./hosts
+      src: ../inventory/hosts
       dest: /tmp/hosts_backup
       mode: '0644'
   - name: Add the user 'ansible'
