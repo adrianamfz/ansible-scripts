@@ -1,20 +1,21 @@
----
-- name: Instalar servidor FTP
-  ansible.builtin.package:
+- name: Instalar servidor FTP (vsftpd)
+  community.general.zypper:
     name: vsftpd
     state: present
 
-- name: Copiar configuración de FTP
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../templates/vsftpd.conf"
+- name: Desplegar plantilla vsftpd.conf
+  ansible.builtin.template:
+    src: vsftpd.conf.j2
     dest: /etc/vsftpd.conf
     owner: root
     group: root
     mode: '0600'
-  notify: Reiniciar FTP
+  notify: Reiniciar vsftpd
 
-- name: Habilitar e iniciar FTP
-  ansible.builtin.service:
+- name: Iniciar y habilitar el servicio vsftpd
+  ansible.builtin.systemd:
     name: vsftpd
-    enabled: true
     state: started
+    enabled: true
+
+
